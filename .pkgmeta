@@ -1,0 +1,14 @@
+﻿package-as: FrogInvite
+
+manual-changelog:
+  filename: RELEASE_NOTES.md
+  markup-type: markdown
+
+ignore:
+  - Images
+  - RELEASE_NOTES.md
+
+externals:
+  Libs/FrogLib:
+    url: https://github.com/frogwizard-dev/frog-lib
+    tag: latest
