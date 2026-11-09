@@ -7,6 +7,8 @@ local _, ns = ...
 --   a line of details (players, how long it's been listed, auto accept), the other activities,
 --     the comment, and a row for each member (class icon, name, leader's crown, level, role, zone)
 --     and each open slot;
+--   not in the group finder: their level, race and class under their name, their guild and zone,
+--     and a button that asks /who for them;
 --   at the bottom, where that came from and the button that searches the group finder again.
 
 local Panel = {}
@@ -177,6 +179,8 @@ function Panel:Build()
     f.status:SetWordWrap(true)
     f.button = FlatButton(f)
     f.button:SetScript("OnClick", function() ns.SearchNext() end)
+    f.whoButton = FlatButton(f)
+    f.whoButton:SetScript("OnClick", function() ns.AskWho() end)
 
     -- Goes with the invite popup.
     f:SetScript("OnUpdate", function(self, elapsed)
@@ -274,7 +278,18 @@ local function Inviter(s)
             if ns.Finder.Key(m.name) == key then return m.name, m.class end
         end
     end
-    return s.inviter or "?", nil
+    return s.inviter or "?", s.who and s.who.class
+end
+
+-- What /who (or the invite) says about them: "Level 60 Human Warrior", as much as is known.
+local function WhoLine(w)
+    if not w then return nil end
+    local bits = {}
+    if w.level and w.level > 0 then bits[#bits + 1] = "Level " .. w.level end
+    if w.race and w.race ~= "" then bits[#bits + 1] = w.race end
+    if w.className and w.className ~= "" then bits[#bits + 1] = w.className end
+    if #bits == 0 then return nil end
+    return table.concat(bits, " ")
 end
 
 -- Frames an addon may look at: not Blizzard's protected ones (the shop and such), which can't
@@ -346,7 +361,8 @@ local function SetBannerArt(tex, e, F)
     tex:SetAlpha(0.6)
 end
 
--- s: { inviter, entry, live, status, button (its label, or nil to hide it), busy }
+-- s: { inviter, entry, live, status, button (its label, or nil to hide it), busy,
+--   who ({ level, race, className, class, guild, area }), whoNote, whoButton, whoBusy }
 function Panel:Show(s)
     if not self.frame then self:Build() end
     local f, F = self.frame, ns.Finder
@@ -362,7 +378,8 @@ function Panel:Show(s)
         f.banner.sub:SetText(("Invited by |c%s%s|r"):format(hex, name))
     else
         f.banner.title:SetText(("|c%s%s|r"):format(hex, name))
-        f.banner.sub:SetText("invited you to a group")
+        local line = WhoLine(s.who)
+        f.banner.sub:SetText(line and (line .. " |cff999999invited you|r") or "invited you to a group")
     end
     local style, key = nil, nil
     if e then style, key = F.Playstyle(e) end
@@ -403,6 +420,7 @@ function Panel:Show(s)
         if e.newPlayerFriendly then bits[#bits + 1] = "|cff7fd07fnew players welcome|r" end
         if e.delisted then bits[#bits + 1] = "|cffff6060delisted|r" end
         f.meta:SetText(table.concat(bits, DOT))
+        f.meta:SetWordWrap(false)
         text(f.meta)
         if #names > 1 then
             f.also:SetText("Also: " .. table.concat(names, ", ", 2))
@@ -449,7 +467,18 @@ function Panel:Show(s)
         end
         y = y - 6
     else
-        f.meta:Hide()
+        -- Not in the group finder: their guild and zone, from /who.
+        local w, bits = s.who, {}
+        if w and w.guild and w.guild ~= "" then bits[#bits + 1] = "|cffffffff<" .. w.guild .. ">|r" end
+        if w and w.area and w.area ~= "" then bits[#bits + 1] = w.area end
+        if s.whoNote then bits[#bits + 1] = s.whoNote end
+        if #bits > 0 then
+            f.meta:SetText(table.concat(bits, DOT))
+            f.meta:SetWordWrap(true)
+            text(f.meta)
+        else
+            f.meta:Hide()
+        end
         f.also:Hide()
         f.comment:Hide()
         f.quote:Hide()
@@ -470,6 +499,15 @@ function Panel:Show(s)
         put(f.button, 22, 8)
     else
         f.button:Hide()
+    end
+    if s.whoButton then
+        f.whoButton.label:SetText(s.whoButton)
+        f.whoButton:SetEnabled(not s.whoBusy)
+        if s.whoBusy then f.whoButton.label:SetTextColor(0.5, 0.5, 0.5) else f.whoButton.label:SetTextColor(1, 0.82, 0) end
+        f.whoButton:SetWidth(W - 2 * PAD)
+        put(f.whoButton, 22, 8)
+    else
+        f.whoButton:Hide()
     end
     f:SetHeight(-y + 2)
 

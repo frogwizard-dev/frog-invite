@@ -5,15 +5,16 @@ local ADDON, ns = ...
 -- inviter against every member of every group in your group finder results (and groups seen in
 -- the last half hour, from earlier searches). When they aren't there, its button searches the
 -- group finder, a category a click (the game only lets a search start from a click), and it
--- looks again as each search's results come in.
---   Finder.lua: the listings and searches. Panel.lua: the panel.
+-- looks again as each search's results come in. When they aren't in it, their race and class show
+-- straight away (from the invite) and a Who button asks /who for their level, guild and zone.
+--   Finder.lua: the listings and searches. Who.lua: the /who. Panel.lua: the panel.
 --   /finvite <name>: shows the panel as if <name> had invited you.
 
-local Finder, Panel = ns.Finder, ns.Panel
+local Finder, Who, Panel = ns.Finder, ns.Who, ns.Panel
 ns.Print = FrogLib.Util.Printer("FrogInvite", "7fd07f")
 
 -- The invite being looked into: { inviter, cats = { { id, name } }, next (index into cats),
--- searching (a category name, while its search runs), failed }, or nil.
+-- searching (a category name, while its search runs), failed, who = { info, asking, none } }, or nil.
 local state
 
 local function NextCategory()
@@ -32,6 +33,19 @@ local function Refresh()
     local entry, live = Finder.Find(state.inviter)
     state.entry = entry
     local s = { inviter = state.inviter, entry = entry, live = live, test = state.test }
+    if not entry then
+        -- Not in the group finder: who they are, and the button that asks /who.
+        local w = state.who
+        s.who = w.info
+        if w.asking then
+            s.whoButton, s.whoBusy = "Asking /who...", true
+        elseif w.none then
+            s.whoNote = "Not found by /who: offline, or asked too soon after another /who."
+            s.whoButton = "Ask /who again"
+        elseif not (w.info and w.info.level) then
+            s.whoButton = "Who is " .. state.inviter .. "?"
+        end
+    end
     local c, own = NextCategory()
     if state.searching then
         s.status = "Searching " .. state.searching .. "..."
@@ -88,13 +102,50 @@ function ns.SearchNext()
     Refresh()
 end
 
+-- The Who button (a click: the only way a /who may go out).
+function ns.AskWho()
+    if not state or state.who.asking then return end
+    local w = state.who
+    w.none = nil
+    if not Who.Send(state.inviter) then
+        w.none = true
+        Refresh()
+        return
+    end
+    local mine = {}
+    w.asking = mine
+    C_Timer.After(Who.WAIT, function()
+        if state and state.who == w and w.asking == mine then
+            w.asking, w.none = nil, true
+            Refresh()
+        end
+    end)
+    Refresh()
+end
+
+-- The who list changed (or a line came into chat): the answer, if it's there.
+local function WhoAnswered()
+    local w = state and state.who
+    if not (w and w.asking) then return end
+    local r = Who.Find(state.inviter)
+    if not r then return end
+    -- Keep what the invite already said where the /who leaves it out.
+    local info = w.info or {}
+    for k, v in pairs(r) do
+        if v ~= nil and v ~= "" then info[k] = v end
+    end
+    w.info, w.asking, w.none = info, nil, nil
+    Refresh()
+end
+
 function ns.Closed()
     state = nil
 end
 
-local function Start(inviter, test)
+local function Start(inviter, test, guid)
     if type(inviter) ~= "string" or FrogLib.issecret(inviter) or inviter == "" then return end
-    state = { inviter = inviter, cats = Finder.Categories(), next = 1, test = test }
+    state = { inviter = inviter, cats = Finder.Categories(), next = 1, test = test,
+        who = { info = Who.FromGUID(guid) } }
     Finder.Snapshot()
     Refresh()
 end
@@ -105,10 +156,10 @@ ns.defaults = {
 
 local ev = CreateFrame("Frame")
 for _, e in ipairs({ "ADDON_LOADED", "PARTY_INVITE_REQUEST", "PARTY_INVITE_CANCEL", "LFG_LIST_SEARCH_RESULTS_RECEIVED",
-    "LFG_LIST_SEARCH_RESULT_UPDATED", "LFG_LIST_SEARCH_FAILED", "GROUP_JOINED" }) do
+    "LFG_LIST_SEARCH_RESULT_UPDATED", "LFG_LIST_SEARCH_FAILED", "GROUP_JOINED", "WHO_LIST_UPDATE", "CHAT_MSG_SYSTEM" }) do
     pcall(ev.RegisterEvent, ev, e)
 end
-ev:SetScript("OnEvent", function(_, event, arg1)
+ev:SetScript("OnEvent", function(_, event, arg1, ...)
     if event == "ADDON_LOADED" then
         if arg1 == ADDON then
             FrogInviteDB = FrogInviteDB or {}
@@ -118,7 +169,8 @@ ev:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "PARTY_INVITE_REQUEST" then
         -- Once the game's own popup is up (the one with role buttons takes a moment), so the
         -- panel can sit under it.
-        C_Timer.After(0.15, function() Start(arg1) end)
+        local guid = select(6, ...) -- inviterGUID
+        C_Timer.After(0.15, function() Start(arg1, nil, guid) end)
     elseif event == "PARTY_INVITE_CANCEL" or event == "GROUP_JOINED" then
         if Panel:IsShown() then Panel:Hide() end
     elseif event == "LFG_LIST_SEARCH_RESULTS_RECEIVED" then
@@ -139,6 +191,9 @@ ev:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "LFG_LIST_SEARCH_RESULT_UPDATED" then
         Finder.Updated(arg1)
         if state and not state.searching then Refresh() end
+    elseif event == "WHO_LIST_UPDATE" or event == "CHAT_MSG_SYSTEM" then
+        -- A short who list comes as lines in chat; the list itself is filled either way.
+        WhoAnswered()
     elseif event == "LFG_LIST_SEARCH_FAILED" then
         if state and state.searching then
             state.searching, state.pending, state.failed = nil, nil, true

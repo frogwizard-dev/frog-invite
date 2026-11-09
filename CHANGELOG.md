@@ -1,5 +1,9 @@
 # FrogInvite
 
+## 0.1.1
+
+- Not in the group finder? Their race and class show straight away (from the invite), and a Who button asks /who for their level, guild and zone (a /who, like a search, only goes out from a click).
+
 ## 0.1.0
 
 - First version. When someone invites you to a group, a panel under the invite shows their group finder listing: what it's listed for (its activities), how long ago it was listed, its comment, and who's in it already, each with their level, class colour, role and zone, the leader marked.
