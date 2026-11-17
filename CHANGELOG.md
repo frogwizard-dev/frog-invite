@@ -1,5 +1,10 @@
 # FrogInvite
 
+## 0.1.3
+
+- No errors from group finder results the game keeps secret while chat is restricted.
+- Shared code (FrogLib 1.12.0): see its notes for the rest of what's fixed.
+
 ## 0.1.2
 
 - A Forever update changed what the game sends with an invite, and an inviter who isn't in the group finder lost their class colour and their race and class (back only after the Who button). Both show straight away again.

@@ -2,7 +2,7 @@
 ## Title: FrogInvite
 ## Category: Frog Wizard
 ## Notes: When someone invites you to a group, shows their group finder listing beside the invite: what they've listed it as, its comment and who's in it already.
-## Version: 0.1.2
+## Version: 0.1.3
 ## SavedVariables: FrogInviteDB
 ## IconTexture: Interface\Icons\INV_Letter_15
 

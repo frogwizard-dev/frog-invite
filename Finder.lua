@@ -20,13 +20,19 @@ function Finder.Key(name)
     return (name:match("^[^-]+") or name):lower()
 end
 
+-- A table the game hands over can itself be secret (while chat is restricted): type() still says "table", and
+-- indexing one throws, so it's checked first.
+local function Readable(t)
+    return type(t) == "table" and not issecret(t) and (not canaccesstable or canaccesstable(t)) and true or false
+end
+
 local function Roles(roles)
-    if type(roles) ~= "table" then return nil end
+    if not Readable(roles) then return nil end
     return { tank = Safe(roles.tank), healer = Safe(roles.healer), dps = Safe(roles.dps) }
 end
 
 local function Player(info)
-    if type(info) ~= "table" then return nil end
+    if not Readable(info) then return nil end
     return {
         name = Safe(info.name), level = Safe(info.level), area = Safe(info.areaName),
         class = Safe(info.classFilename), className = Safe(info.className),
@@ -37,7 +43,7 @@ end
 -- One search result as a plain table, or nil when the game won't give it.
 local function Read(id)
     local ok, info = pcall(C_LFGList.GetSearchResultInfo, id)
-    if not ok or type(info) ~= "table" then return nil end
+    if not ok or not Readable(info) then return nil end
     local entry = {
         id = id,
         leader = Safe(info.leaderName),
@@ -52,7 +58,7 @@ local function Read(id)
         members = {},
         seenAt = GetTime(),
     }
-    if type(info.activityIDs) == "table" and not issecret(info.activityIDs) then
+    if Readable(info.activityIDs) then
         for _, activityID in ipairs(info.activityIDs) do
             activityID = Safe(activityID)
             if activityID then entry.activities[#entry.activities + 1] = activityID end
