@@ -1,5 +1,9 @@
 # FrogInvite
 
+## 0.1.2
+
+- A Forever update changed what the game sends with an invite, and an inviter who isn't in the group finder lost their class colour and their race and class (back only after the Who button). Both show straight away again.
+
 ## 0.1.1
 
 - Not in the group finder? Their race and class show straight away (from the invite), and a Who button asks /who for their level, guild and zone (a /who, like a search, only goes out from a click).
@@ -7,7 +11,7 @@
 ## 0.1.0
 
 - First version. When someone invites you to a group, a panel under the invite shows their group finder listing: what it's listed for (its activities), how long ago it was listed, its comment, and who's in it already, each with their level, class colour, role and zone, the leader marked.
-- The inviter is matched against every member of every group in your group finder results, not just the leader, so an invite from anyone in a listed group finds it. Groups seen in searches over the last half hour are remembered too (without their comment once they've left your results).
+- The inviter is matched against every member of every group in your group finder results, not only the leader, so an invite from anyone in a listed group finds it. Groups seen in searches over the last half hour are remembered too (without their comment once they've left your results).
 - Not found? The panel's button searches the group finder, one category a click (the game only lets a search start from a click), starting with the category Blizzard's group finder has picked, and the panel looks again as each search's results come in. For a group seen before, the button refreshes its own category first.
 - The panel goes with the invite popup: accepted, declined or timed out.
 - The group type the leader picked (Learning, Relaxed, Competitive or Expert) as a coloured badge, and whether new players are welcome.

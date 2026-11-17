@@ -1,21 +1,16 @@
 local _, ns = ...
 
--- The panel under the invite popup, minimal dark like FrogUI:
---   a banner with the category's own group finder art (darkened): what the group's listed for,
---     who invited you (in their class colour) and the group type (Learning, Relaxed, Competitive,
---     Expert) as a coloured badge;
---   a line of details (players, how long it's been listed, auto accept), the other activities,
---     the comment, and a row for each member (class icon, name, leader's crown, level, role, zone)
---     and each open slot;
---   not in the group finder: their level, race and class under their name, their guild and zone,
---     and a button that asks /who for them;
---   at the bottom, where that came from and the button that searches the group finder again.
+-- The panel under the invite popup, minimal dark like FrogUI: a banner (the dungeon's or category's
+-- art, what the group's listed for, who invited you, a group type badge), the listing's details,
+-- comment and a row per member and open slot; or, not in the finder, what /who says about them;
+-- and at the bottom where that came from, with the buttons that search again and ask /who.
 
 local Panel = {}
 ns.Panel = Panel
+local Finder = ns.Finder
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
-local W, PAD, BANNER_H, ROW_H = 300, 10, 56, 18
+local WIDTH, PAD, BANNER_HEIGHT, ROW_HEIGHT = 300, 10, 56, 18
 local MAX_OPEN = 5 -- open slot rows shown; more (raids) as one line
 local DOT = "  |cff555555\194\183|r  " -- a middle dot between details
 
@@ -39,33 +34,33 @@ local function HasAtlas(name)
     return name and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name) ~= nil
 end
 
-local function SetAtlas(tex, name)
+local function SetAtlas(texture, name)
     if HasAtlas(name) then
-        tex:SetAtlas(name)
-        tex:Show()
+        texture:SetAtlas(name)
+        texture:Show()
         return true
     end
-    tex:Hide()
+    texture:Hide()
     return false
 end
 
 local function Text(parent, template, justify)
-    local fs = parent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
-    fs:SetJustifyH(justify or "LEFT")
-    fs:SetWordWrap(false)
-    return fs
+    local text = parent:CreateFontString(nil, "OVERLAY", template or "GameFontHighlightSmall")
+    text:SetJustifyH(justify or "LEFT")
+    text:SetWordWrap(false)
+    return text
 end
 
 local function Line(parent, layer)
-    local t = parent:CreateTexture(nil, layer or "BORDER")
-    t:SetColorTexture(1, 1, 1, 0.07)
-    t:SetHeight(1)
-    return t
+    local line = parent:CreateTexture(nil, layer or "BORDER")
+    line:SetColorTexture(1, 1, 1, 0.07)
+    line:SetHeight(1)
+    return line
 end
 
 local function ClassColor(class)
-    local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-    if c then return c.r, c.g, c.b, c.colorStr end
+    local color = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+    if color then return color.r, color.g, color.b, color.colorStr end
     return 1, 1, 1, "ffffffff"
 end
 
@@ -75,35 +70,35 @@ end
 
 -- A flat button: dark, a 1px edge, gold text that lights up under the mouse.
 local function FlatButton(parent)
-    local b = CreateFrame("Button", nil, parent, "BackdropTemplate")
-    b:SetHeight(22)
-    b:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
-    b:SetBackdropColor(0.13, 0.13, 0.14, 1)
-    b:SetBackdropBorderColor(0, 0, 0, 1)
-    b.label = Text(b, "GameFontNormalSmall", "CENTER")
-    b.label:SetPoint("CENTER")
-    b:SetScript("OnEnter", function(self)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    button:SetHeight(22)
+    button:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+    button:SetBackdropColor(0.13, 0.13, 0.14, 1)
+    button:SetBackdropBorderColor(0, 0, 0, 1)
+    button.label = Text(button, "GameFontNormalSmall", "CENTER")
+    button.label:SetPoint("CENTER")
+    button:SetScript("OnEnter", function(self)
         if self:IsEnabled() then self:SetBackdropColor(0.2, 0.19, 0.15, 1) end
     end)
-    b:SetScript("OnLeave", function(self) self:SetBackdropColor(0.13, 0.13, 0.14, 1) end)
-    return b
+    button:SetScript("OnLeave", function(self) self:SetBackdropColor(0.13, 0.13, 0.14, 1) end)
+    return button
 end
 
 function Panel:Build()
-    local f = CreateFrame("Frame", "FrogInvitePanel", UIParent, "BackdropTemplate")
-    f:SetFrameStrata("DIALOG")
-    f:SetWidth(W)
-    f:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
-    f:SetBackdropColor(0.06, 0.06, 0.07, 0.96)
-    f:SetBackdropBorderColor(0, 0, 0, 1)
-    f:SetClampedToScreen(true)
-    f:Hide()
+    local frame = CreateFrame("Frame", "FrogInvitePanel", UIParent, "BackdropTemplate")
+    frame:SetFrameStrata("DIALOG")
+    frame:SetWidth(WIDTH)
+    frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+    frame:SetBackdropColor(0.06, 0.06, 0.07, 0.96)
+    frame:SetBackdropBorderColor(0, 0, 0, 1)
+    frame:SetClampedToScreen(true)
+    frame:Hide()
 
     -- The banner.
-    local banner = CreateFrame("Frame", nil, f)
+    local banner = CreateFrame("Frame", nil, frame)
     banner:SetPoint("TOPLEFT", 1, -1)
     banner:SetPoint("TOPRIGHT", -1, -1)
-    banner:SetHeight(BANNER_H)
+    banner:SetHeight(BANNER_HEIGHT)
     banner:SetClipsChildren(true)
     banner.art = banner:CreateTexture(nil, "BACKGROUND")
     banner.art:SetAllPoints()
@@ -132,7 +127,7 @@ function Panel:Build()
     banner.sub = Text(banner, "GameFontHighlightSmall")
     banner.sub:SetTextColor(0.8, 0.8, 0.8)
     banner.sub:SetPoint("TOPLEFT", banner.title, "BOTTOMLEFT", 0, -5)
-    f.banner = banner
+    frame.banner = banner
 
     -- The group type badge, at the banner's lower right.
     local badge = CreateFrame("Frame", nil, banner, "BackdropTemplate")
@@ -141,122 +136,127 @@ function Panel:Build()
     badge:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
     badge.text = Text(badge, "GameFontNormalSmall", "CENTER")
     badge.text:SetPoint("CENTER", 0, 0)
-    f.badge = badge
+    frame.badge = badge
     banner.sub:SetPoint("RIGHT", badge, "LEFT", -6, 0)
 
     -- A small close cross.
     local close = CreateFrame("Button", nil, banner)
     close:SetSize(18, 18)
     close:SetPoint("TOPRIGHT", -4, -4)
-    close.x = Text(close, "GameFontNormal", "CENTER")
-    close.x:SetPoint("CENTER")
-    close.x:SetText("\195\151") -- ×
-    close.x:SetTextColor(0.6, 0.6, 0.6)
-    close:SetScript("OnEnter", function(self) self.x:SetTextColor(1, 1, 1) end)
-    close:SetScript("OnLeave", function(self) self.x:SetTextColor(0.6, 0.6, 0.6) end)
+    close.cross = Text(close, "GameFontNormal", "CENTER")
+    close.cross:SetPoint("CENTER")
+    close.cross:SetText("\195\151") -- the multiplication sign
+    close.cross:SetTextColor(0.6, 0.6, 0.6)
+    close:SetScript("OnEnter", function(self) self.cross:SetTextColor(1, 1, 1) end)
+    close:SetScript("OnLeave", function(self) self.cross:SetTextColor(0.6, 0.6, 0.6) end)
     close:SetScript("OnClick", function() Panel:Hide() end)
 
     -- The body.
-    f.meta = Text(f)
-    f.meta:SetTextColor(0.65, 0.65, 0.65)
-    f.also = Text(f)
-    f.also:SetTextColor(0.65, 0.65, 0.65)
-    f.also:SetWordWrap(true)
-    f.quote = f:CreateTexture(nil, "ARTWORK")
-    f.quote:SetColorTexture(1, 0.82, 0, 0.6)
-    f.quote:SetWidth(2)
-    f.comment = Text(f)
-    f.comment:SetTextColor(0.9, 0.88, 0.78)
-    f.comment:SetWordWrap(true)
-    f.rows = {}
-    f.more = Text(f)
-    f.more:SetTextColor(0.45, 0.45, 0.45)
+    frame.meta = Text(frame)
+    frame.meta:SetTextColor(0.65, 0.65, 0.65)
+    frame.also = Text(frame)
+    frame.also:SetTextColor(0.65, 0.65, 0.65)
+    frame.also:SetWordWrap(true)
+    frame.quote = frame:CreateTexture(nil, "ARTWORK")
+    frame.quote:SetColorTexture(1, 0.82, 0, 0.6)
+    frame.quote:SetWidth(2)
+    frame.comment = Text(frame)
+    frame.comment:SetTextColor(0.9, 0.88, 0.78)
+    frame.comment:SetWordWrap(true)
+    frame.rows = {}
+    frame.more = Text(frame)
+    frame.more:SetTextColor(0.45, 0.45, 0.45)
 
     -- The footer.
-    f.rule = Line(f)
-    f.status = Text(f)
-    f.status:SetTextColor(0.55, 0.55, 0.55)
-    f.status:SetWordWrap(true)
-    f.button = FlatButton(f)
-    f.button:SetScript("OnClick", function() ns.SearchNext() end)
-    f.whoButton = FlatButton(f)
-    f.whoButton:SetScript("OnClick", function() ns.AskWho() end)
+    frame.rule = Line(frame)
+    frame.status = Text(frame)
+    frame.status:SetTextColor(0.55, 0.55, 0.55)
+    frame.status:SetWordWrap(true)
+    frame.button = FlatButton(frame)
+    frame.button:SetScript("OnClick", function() ns.SearchNext() end)
+    frame.whoButton = FlatButton(frame)
+    frame.whoButton:SetScript("OnClick", function() ns.AskWho() end)
 
     -- Goes with the invite popup.
-    f:SetScript("OnUpdate", function(self, elapsed)
+    frame:SetScript("OnUpdate", function(self, elapsed)
         self.since = (self.since or 0) + elapsed
         if self.since < 0.2 then return end
         self.since = 0
-        local d = self.dialog
-        if d and not (d:IsShown() and (d.which == nil or d.which == "PARTY_INVITE")) then Panel:Hide() end
+        local dialog = self.dialog
+        if dialog and not (dialog:IsShown() and (dialog.which == nil or dialog.which == "PARTY_INVITE")) then
+            Panel:Hide()
+        end
     end)
-    self.frame = f
+    self.frame = frame
 end
 
 -- A member's row: class icon, name, crown, level, role, zone.
-local function Row(f, i)
-    local r = f.rows[i]
-    if r then return r end
-    r = CreateFrame("Frame", nil, f)
-    r:SetSize(W - 2 * PAD, ROW_H)
-    r.bg = r:CreateTexture(nil, "BACKGROUND")
-    r.bg:SetAllPoints()
-    r.bg:SetColorTexture(1, 1, 1, 0.03)
-    r.icon = r:CreateTexture(nil, "ARTWORK")
-    r.icon:SetSize(14, 14)
-    r.icon:SetPoint("LEFT", 2, 0)
-    r.name = Text(r, "GameFontHighlightSmall")
-    r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
-    r.crown = r:CreateTexture(nil, "ARTWORK")
-    r.crown:SetSize(12, 12)
-    r.crown:SetPoint("LEFT", r.name, "RIGHT", 3, 1)
-    r.zone = Text(r, "GameFontHighlightSmall", "RIGHT")
-    r.zone:SetTextColor(0.5, 0.5, 0.5)
-    r.zone:SetPoint("RIGHT", -4, 0)
-    r.zone:SetWidth(84)
-    r.role = r:CreateTexture(nil, "ARTWORK")
-    r.role:SetSize(14, 14)
-    r.role:SetPoint("RIGHT", r.zone, "LEFT", -6, 0)
-    r.level = Text(r, "GameFontHighlightSmall", "RIGHT")
-    r.level:SetWidth(22)
-    r.level:SetPoint("RIGHT", r.role, "LEFT", -6, 0)
-    f.rows[i] = r
-    return r
+local function Row(frame, index)
+    local row = frame.rows[index]
+    if row then return row end
+    row = CreateFrame("Frame", nil, frame)
+    row:SetSize(WIDTH - 2 * PAD, ROW_HEIGHT)
+    row.bg = row:CreateTexture(nil, "BACKGROUND")
+    row.bg:SetAllPoints()
+    row.bg:SetColorTexture(1, 1, 1, 0.03)
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetSize(14, 14)
+    row.icon:SetPoint("LEFT", 2, 0)
+    row.name = Text(row, "GameFontHighlightSmall")
+    row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.crown = row:CreateTexture(nil, "ARTWORK")
+    row.crown:SetSize(12, 12)
+    row.crown:SetPoint("LEFT", row.name, "RIGHT", 3, 1)
+    row.zone = Text(row, "GameFontHighlightSmall", "RIGHT")
+    row.zone:SetTextColor(0.5, 0.5, 0.5)
+    row.zone:SetPoint("RIGHT", -4, 0)
+    row.zone:SetWidth(84)
+    row.role = row:CreateTexture(nil, "ARTWORK")
+    row.role:SetSize(14, 14)
+    row.role:SetPoint("RIGHT", row.zone, "LEFT", -6, 0)
+    row.level = Text(row, "GameFontHighlightSmall", "RIGHT")
+    row.level:SetWidth(22)
+    row.level:SetPoint("RIGHT", row.role, "LEFT", -6, 0)
+    frame.rows[index] = row
+    return row
 end
 
-local function FillMember(r, m, solo)
-    r.bg:Show()
-    if not (m.class and SetAtlas(r.icon, "groupfinder-icon-class-" .. m.class:lower())) then r.icon:Hide() end
-    r.icon:SetDesaturated(false)
-    r.icon:SetAlpha(1)
-    local cr, cg, cb = ClassColor(m.class)
-    r.name:SetText(m.name or "?")
-    r.name:SetTextColor(cr, cg, cb)
-    r.name:SetWidth(math.min(r.name:GetUnboundedStringWidth(), 120))
-    if m.leader then SetAtlas(r.crown, "groupfinder-icon-leader") else r.crown:Hide() end
-    r.level:SetText(m.level and tostring(m.level) or "")
-    local role = m.role
-    if solo and m.roles then
-        -- On their own: the roles they'd take; one icon, the first of them.
-        role = (m.roles.tank and "TANK") or (m.roles.healer and "HEALER") or (m.roles.dps and "DAMAGER") or role
+local function FillMember(row, member, solo)
+    row.bg:Show()
+    if not (member.class and SetAtlas(row.icon, "groupfinder-icon-class-" .. member.class:lower())) then
+        row.icon:Hide()
     end
-    if not SetAtlas(r.role, ROLE_ATLAS[role or ""]) then r.role:Hide() end
+    row.icon:SetDesaturated(false)
+    row.icon:SetAlpha(1)
+    local r, g, b = ClassColor(member.class)
+    row.name:SetText(member.name or "?")
+    row.name:SetTextColor(r, g, b)
+    row.name:SetWidth(math.min(row.name:GetUnboundedStringWidth(), 120))
+    if member.leader then SetAtlas(row.crown, "groupfinder-icon-leader") else row.crown:Hide() end
+    row.level:SetText(member.level and tostring(member.level) or "")
+    local role = member.role
+    if solo and member.roles then
+        -- On their own: the roles they'd take; one icon, the first of them.
+        local roles = member.roles
+        role = (roles.tank and "TANK") or (roles.healer and "HEALER") or (roles.dps and "DAMAGER") or role
+    end
+    if not SetAtlas(row.role, ROLE_ATLAS[role or ""]) then row.role:Hide() end
     -- The listing only has the leader's zone; friends' and guild members' come from those lists.
-    r.zone:SetText(m.area or ns.Finder.KnownZone(m.name) or "")
-    r:Show()
+    row.zone:SetText(member.area or Finder.KnownZone(member.name) or "")
+    row:Show()
 end
 
-local function FillOpen(r)
-    r.bg:Hide()
-    if SetAtlas(r.icon, "groupfinder-waitdot") then r.icon:SetAlpha(0.5) end
-    r.name:SetText("Open")
-    r.name:SetTextColor(0.4, 0.4, 0.4)
-    r.name:SetWidth(120)
-    r.crown:Hide()
-    r.level:SetText("")
-    r.role:Hide()
-    r.zone:SetText("")
-    r:Show()
+local function FillOpen(row)
+    row.bg:Hide()
+    if SetAtlas(row.icon, "groupfinder-waitdot") then row.icon:SetAlpha(0.5) end
+    row.name:SetText("Open")
+    row.name:SetTextColor(0.4, 0.4, 0.4)
+    row.name:SetWidth(120)
+    row.crown:Hide()
+    row.level:SetText("")
+    row.role:Hide()
+    row.zone:SetText("")
+    row:Show()
 end
 
 local function Ago(seconds)
@@ -271,25 +271,25 @@ end
 ------------------------------------------------------------------------------
 
 -- The inviter as the listing has them (properly written, with their class), else as given.
-local function Inviter(s)
-    local key = ns.Finder.Key(s.inviter)
-    if s.entry and key then
-        for _, m in ipairs(s.entry.members) do
-            if ns.Finder.Key(m.name) == key then return m.name, m.class end
+local function Inviter(view)
+    local key = Finder.Key(view.inviter)
+    if view.entry and key then
+        for _, member in ipairs(view.entry.members) do
+            if Finder.Key(member.name) == key then return member.name, member.class end
         end
     end
-    return s.inviter or "?", s.who and s.who.class
+    return view.inviter or "?", view.who and view.who.class
 end
 
 -- What /who (or the invite) says about them: "Level 60 Human Warrior", as much as is known.
-local function WhoLine(w)
-    if not w then return nil end
-    local bits = {}
-    if w.level and w.level > 0 then bits[#bits + 1] = "Level " .. w.level end
-    if w.race and w.race ~= "" then bits[#bits + 1] = w.race end
-    if w.className and w.className ~= "" then bits[#bits + 1] = w.className end
-    if #bits == 0 then return nil end
-    return table.concat(bits, " ")
+local function WhoLine(who)
+    if not who then return nil end
+    local words = {}
+    if who.level and who.level > 0 then words[#words + 1] = "Level " .. who.level end
+    if who.race and who.race ~= "" then words[#words + 1] = who.race end
+    if who.className and who.className ~= "" then words[#words + 1] = who.className end
+    if #words == 0 then return nil end
+    return table.concat(words, " ")
 end
 
 -- Frames an addon may look at: not Blizzard's protected ones (the shop and such), which can't
@@ -300,19 +300,20 @@ end
 
 -- Whether a frame shows `name` in its text (its own font strings, or its children's).
 local function Says(frame, name, depth)
-    for _, r in ipairs({ frame:GetRegions() }) do
-        if Open(r) and r.GetObjectType and r:GetObjectType() == "FontString" and r:IsShown() then
-            local t = r:GetText()
+    for _, region in ipairs({ frame:GetRegions() }) do
+        if Open(region) and region.GetObjectType and region:GetObjectType() == "FontString" and region:IsShown() then
+            local text = region:GetText()
             -- The name and the word "invite" together, as an invite says ("X invites you to a group").
-            if type(t) == "string" and not FrogLib.issecret(t) then
-                t = t:lower()
-                if t:find(name, 1, true) and t:find("invite", 1, true) then return true end
+            if type(text) == "string" and not FrogLib.issecret(text) then
+                text = text:lower()
+                if text:find(name, 1, true) and text:find("invite", 1, true) then return true end
             end
         end
     end
     if depth > 0 then
-        for _, c in ipairs({ frame:GetChildren() }) do
-            if Open(c) and c:IsShown() and not c:IsObjectType("EditBox") and Says(c, name, depth - 1) then return true end
+        for _, child in ipairs({ frame:GetChildren() }) do
+            if Open(child) and child:IsShown() and not child:IsObjectType("EditBox")
+                and Says(child, name, depth - 1) then return true end
         end
     end
     return false
@@ -322,207 +323,199 @@ end
 -- those any dialog on screen that names the inviter.
 local function FindPopup(inviter)
     if StaticPopup_Visible then
-        local _, d = StaticPopup_Visible("PARTY_INVITE")
-        if d then return d end
+        local _, dialog = StaticPopup_Visible("PARTY_INVITE")
+        if dialog then return dialog end
     end
     local roles = _G.LFGInvitePopup
     if roles and Open(roles) and roles:IsShown() then return roles end
-    local key = ns.Finder.Key(inviter)
+    local key = Finder.Key(inviter)
     if not key then return nil end
-    for _, c in ipairs({ UIParent:GetChildren() }) do
-        if Open(c) and c ~= Panel.frame and not c:IsObjectType("EditBox") then
+    for _, child in ipairs({ UIParent:GetChildren() }) do
+        if Open(child) and child ~= Panel.frame and not child:IsObjectType("EditBox") then
             local ok, found = pcall(function()
-                local strata = c:IsShown() and c:GetFrameStrata()
-                return (strata == "DIALOG" or strata == "FULLSCREEN_DIALOG") and Says(c, key, 2)
+                local strata = child:IsShown() and child:GetFrameStrata()
+                return (strata == "DIALOG" or strata == "FULLSCREEN_DIALOG") and Says(child, key, 2)
             end)
-            if ok and found then return c end
+            if ok and found then return child end
         end
     end
 end
 
 -- The banner's art: the dungeon's own picture where there is one, else the category's.
-local function SetBannerArt(tex, e, F)
-    tex:SetTexCoord(0, 1, 0, 1)
-    tex:SetDesaturated(not e)
-    if e then
-        for _, try in ipairs(F.Art(e) or {}) do
-            if tex:SetTexture(try[1]) then
-                local c = try[2]
-                tex:SetTexCoord(c[1], c[2], c[3], c[4])
-                tex:SetAlpha(0.85)
-                tex:Show()
+local function SetBannerArt(texture, entry)
+    texture:SetTexCoord(0, 1, 0, 1)
+    texture:SetDesaturated(not entry)
+    if entry then
+        for _, try in ipairs(Finder.Art(entry) or {}) do
+            if texture:SetTexture(try[1]) then
+                local cut = try[2]
+                texture:SetTexCoord(cut[1], cut[2], cut[3], cut[4])
+                texture:SetAlpha(0.85)
+                texture:Show()
                 return
             end
         end
     end
-    local cat = e and F.CategoryOf(e)
-    cat = cat and ((LFGLISTING_CATEGORY_TEXTURES and LFGLISTING_CATEGORY_TEXTURES[cat]) or ART[cat])
-    SetAtlas(tex, cat or ART_DEFAULT)
-    tex:SetAlpha(0.6)
+    local category = entry and Finder.CategoryOf(entry)
+    local atlas = category and ((LFGLISTING_CATEGORY_TEXTURES and LFGLISTING_CATEGORY_TEXTURES[category]) or ART[category])
+    SetAtlas(texture, atlas or ART_DEFAULT)
+    texture:SetAlpha(0.6)
 end
 
--- s: { inviter, entry, live, status, button (its label, or nil to hide it), busy,
+-- view: { inviter, entry, live, status, button (its label, or nil to hide it), busy,
 --   who ({ level, race, className, class, guild, area }), whoNote, whoButton, whoBusy }
-function Panel:Show(s)
+function Panel:Show(view)
     if not self.frame then self:Build() end
-    local f, F = self.frame, ns.Finder
-    local e = s.entry
-    local name, class = Inviter(s)
+    local frame = self.frame
+    local entry = view.entry
+    local name, class = Inviter(view)
     local _, _, _, hex = ClassColor(class)
 
     -- The banner: the category's art, what it's listed for, who invited you, the group type.
-    SetBannerArt(f.banner.art, e, F)
-    local names = e and F.ActivityNames(e) or {}
-    if e then
-        f.banner.title:SetText(names[1] or "Group")
-        f.banner.sub:SetText(("Invited by |c%s%s|r"):format(hex, name))
+    SetBannerArt(frame.banner.art, entry)
+    local names = entry and Finder.ActivityNames(entry) or {}
+    if entry then
+        frame.banner.title:SetText(names[1] or "Group")
+        frame.banner.sub:SetText(("Invited by |c%s%s|r"):format(hex, name))
     else
-        f.banner.title:SetText(("|c%s%s|r"):format(hex, name))
-        local line = WhoLine(s.who)
-        f.banner.sub:SetText(line and (line .. " |cff999999invited you|r") or "invited you to a group")
+        frame.banner.title:SetText(("|c%s%s|r"):format(hex, name))
+        local line = WhoLine(view.who)
+        frame.banner.sub:SetText(line and (line .. " |cff999999invited you|r") or "invited you to a group")
     end
     local style, key = nil, nil
-    if e then style, key = F.Playstyle(e) end
+    if entry then style, key = Finder.Playstyle(entry) end
     if style then
-        local c = STYLE_COLOR[key]
-        f.badge.text:SetText(style)
-        f.badge.text:SetTextColor(c[1], c[2], c[3])
-        f.badge:SetBackdropColor(c[1], c[2], c[3], 0.18)
-        f.badge:SetBackdropBorderColor(c[1], c[2], c[3], 0.6)
-        f.badge:SetWidth(f.badge.text:GetUnboundedStringWidth() + 14)
-        f.badge:Show()
+        local color = STYLE_COLOR[key]
+        frame.badge.text:SetText(style)
+        frame.badge.text:SetTextColor(color[1], color[2], color[3])
+        frame.badge:SetBackdropColor(color[1], color[2], color[3], 0.18)
+        frame.badge:SetBackdropBorderColor(color[1], color[2], color[3], 0.6)
+        frame.badge:SetWidth(frame.badge.text:GetUnboundedStringWidth() + 14)
+        frame.badge:Show()
     else
-        f.badge:Hide()
+        frame.badge:Hide()
     end
 
-    local y = -(BANNER_H + 1 + 8)
-    local function put(region, h, gap, x)
+    local y = -(BANNER_HEIGHT + 1 + 8)
+    local function Put(region, height, gap, x)
         region:ClearAllPoints()
         region:SetPoint("TOPLEFT", (x or 0) + PAD, y)
         region:Show()
-        y = y - h - (gap or 6)
+        y = y - height - (gap or 6)
     end
-    local function text(fs, gap, x)
-        fs:SetWidth(W - 2 * PAD - (x or 0))
-        put(fs, fs:GetStringHeight(), gap, x)
+    local function PutText(text, gap, x)
+        text:SetWidth(WIDTH - 2 * PAD - (x or 0))
+        Put(text, text:GetStringHeight(), gap, x)
     end
 
-    for _, r in ipairs(f.rows) do r:Hide() end
-    f.more:Hide()
-    if e then
+    for _, row in ipairs(frame.rows) do row:Hide() end
+    frame.more:Hide()
+    if entry then
         -- Details.
-        local max = F.MaxPlayers(e)
-        local bits = { max and ("|cffffffff%d|r/%d players"):format(e.numMembers, max)
-            or ("|cffffffff%d|r %s"):format(e.numMembers, e.numMembers == 1 and "player" or "players") }
-        local age = e.age and Ago(e.age + (GetTime() - e.seenAt))
-        if age then bits[#bits + 1] = age end
-        if e.autoAccept then bits[#bits + 1] = "auto accept" end
-        if e.newPlayerFriendly then bits[#bits + 1] = "|cff7fd07fnew players welcome|r" end
-        if e.delisted then bits[#bits + 1] = "|cffff6060delisted|r" end
-        f.meta:SetText(table.concat(bits, DOT))
-        f.meta:SetWordWrap(false)
-        text(f.meta)
+        local maxPlayers = Finder.MaxPlayers(entry)
+        local details = { maxPlayers and ("|cffffffff%d|r/%d players"):format(entry.numMembers, maxPlayers)
+            or ("|cffffffff%d|r %s"):format(entry.numMembers, entry.numMembers == 1 and "player" or "players") }
+        local age = entry.age and Ago(entry.age + (GetTime() - entry.seenAt))
+        if age then details[#details + 1] = age end
+        if entry.autoAccept then details[#details + 1] = "auto accept" end
+        if entry.newPlayerFriendly then details[#details + 1] = "|cff7fd07fnew players welcome|r" end
+        if entry.delisted then details[#details + 1] = "|cffff6060delisted|r" end
+        frame.meta:SetText(table.concat(details, DOT))
+        frame.meta:SetWordWrap(false)
+        PutText(frame.meta)
         if #names > 1 then
-            f.also:SetText("Also: " .. table.concat(names, ", ", 2))
-            text(f.also)
+            frame.also:SetText("Also: " .. table.concat(names, ", ", 2))
+            PutText(frame.also)
         else
-            f.also:Hide()
+            frame.also:Hide()
         end
         -- The comment, with a gold bar beside it.
-        if e.comment and e.comment ~= "" then
-            pcall(f.comment.SetText, f.comment, e.comment)
+        if entry.comment and entry.comment ~= "" then
+            pcall(frame.comment.SetText, frame.comment, entry.comment)
             local top = y
-            text(f.comment, 8, 8)
-            f.quote:ClearAllPoints()
-            f.quote:SetPoint("TOPLEFT", PAD, top + 1)
-            f.quote:SetPoint("BOTTOMLEFT", f.comment, "BOTTOMLEFT", -8, -1)
-            f.quote:Show()
+            PutText(frame.comment, 8, 8)
+            frame.quote:ClearAllPoints()
+            frame.quote:SetPoint("TOPLEFT", PAD, top + 1)
+            frame.quote:SetPoint("BOTTOMLEFT", frame.comment, "BOTTOMLEFT", -8, -1)
+            frame.quote:Show()
         else
-            f.comment:Hide()
-            f.quote:Hide()
+            frame.comment:Hide()
+            frame.quote:Hide()
         end
         -- The members, the leader first, then the open slots.
         local members = {}
-        for _, m in ipairs(e.members) do
-            if m.leader then table.insert(members, 1, m) else members[#members + 1] = m end
+        for _, member in ipairs(entry.members) do
+            if member.leader then table.insert(members, 1, member) else members[#members + 1] = member end
         end
-        local solo = e.numMembers == 1
-        local i = 0
-        for _, m in ipairs(members) do
-            i = i + 1
-            local r = Row(f, i)
-            FillMember(r, m, solo)
-            put(r, ROW_H, 2)
+        local solo = entry.numMembers == 1
+        local rows = 0
+        for _, member in ipairs(members) do
+            rows = rows + 1
+            local row = Row(frame, rows)
+            FillMember(row, member, solo)
+            Put(row, ROW_HEIGHT, 2)
         end
-        local open = max and math.max(0, max - e.numMembers) or 0
+        local open = maxPlayers and math.max(0, maxPlayers - entry.numMembers) or 0
         for _ = 1, math.min(open, MAX_OPEN) do
-            i = i + 1
-            local r = Row(f, i)
-            FillOpen(r)
-            put(r, ROW_H, 2)
+            rows = rows + 1
+            local row = Row(frame, rows)
+            FillOpen(row)
+            Put(row, ROW_HEIGHT, 2)
         end
         if open > MAX_OPEN then
-            f.more:SetText(("+%d more open"):format(open - MAX_OPEN))
-            text(f.more, 2, 22)
+            frame.more:SetText(("+%d more open"):format(open - MAX_OPEN))
+            PutText(frame.more, 2, 22)
         end
         y = y - 6
     else
         -- Not in the group finder: their guild and zone, from /who.
-        local w, bits = s.who, {}
-        if w and w.guild and w.guild ~= "" then bits[#bits + 1] = "|cffffffff<" .. w.guild .. ">|r" end
-        if w and w.area and w.area ~= "" then bits[#bits + 1] = w.area end
-        if s.whoNote then bits[#bits + 1] = s.whoNote end
-        if #bits > 0 then
-            f.meta:SetText(table.concat(bits, DOT))
-            f.meta:SetWordWrap(true)
-            text(f.meta)
+        local who, details = view.who, {}
+        if who and who.guild and who.guild ~= "" then details[#details + 1] = "|cffffffff<" .. who.guild .. ">|r" end
+        if who and who.area and who.area ~= "" then details[#details + 1] = who.area end
+        if view.whoNote then details[#details + 1] = view.whoNote end
+        if #details > 0 then
+            frame.meta:SetText(table.concat(details, DOT))
+            frame.meta:SetWordWrap(true)
+            PutText(frame.meta)
         else
-            f.meta:Hide()
+            frame.meta:Hide()
         end
-        f.also:Hide()
-        f.comment:Hide()
-        f.quote:Hide()
+        frame.also:Hide()
+        frame.comment:Hide()
+        frame.quote:Hide()
     end
 
     -- The footer.
-    f.rule:ClearAllPoints()
-    f.rule:SetPoint("TOPLEFT", 1, y)
-    f.rule:SetPoint("TOPRIGHT", -1, y)
+    frame.rule:ClearAllPoints()
+    frame.rule:SetPoint("TOPLEFT", 1, y)
+    frame.rule:SetPoint("TOPRIGHT", -1, y)
     y = y - 8
-    f.status:SetText(s.status or "")
-    text(f.status, 8)
-    if s.button then
-        f.button.label:SetText(s.button)
-        f.button:SetEnabled(not s.busy)
-        if s.busy then f.button.label:SetTextColor(0.5, 0.5, 0.5) else f.button.label:SetTextColor(1, 0.82, 0) end
-        f.button:SetWidth(W - 2 * PAD)
-        put(f.button, 22, 8)
-    else
-        f.button:Hide()
+    frame.status:SetText(view.status or "")
+    PutText(frame.status, 8)
+    local function PutButton(button, label, busy)
+        if not label then return button:Hide() end
+        button.label:SetText(label)
+        button:SetEnabled(not busy)
+        if busy then button.label:SetTextColor(0.5, 0.5, 0.5) else button.label:SetTextColor(1, 0.82, 0) end
+        button:SetWidth(WIDTH - 2 * PAD)
+        Put(button, 22, 8)
     end
-    if s.whoButton then
-        f.whoButton.label:SetText(s.whoButton)
-        f.whoButton:SetEnabled(not s.whoBusy)
-        if s.whoBusy then f.whoButton.label:SetTextColor(0.5, 0.5, 0.5) else f.whoButton.label:SetTextColor(1, 0.82, 0) end
-        f.whoButton:SetWidth(W - 2 * PAD)
-        put(f.whoButton, 22, 8)
-    else
-        f.whoButton:Hide()
-    end
-    f:SetHeight(-y + 2)
+    PutButton(frame.button, view.button, view.busy)
+    PutButton(frame.whoButton, view.whoButton, view.whoBusy)
+    frame:SetHeight(-y + 2)
 
     -- Under the invite popup when there is one, else near the top of the screen.
-    f:SetScale(ns.db and ns.db.scale or 1)
+    frame:SetScale(ns.db and ns.db.scale or 1)
     local dialog
-    if not s.test then dialog = (f.dialog and f.dialog:IsShown()) and f.dialog or FindPopup(name) end
-    f.dialog = dialog
-    f:ClearAllPoints()
+    if not view.test then dialog = (frame.dialog and frame.dialog:IsShown()) and frame.dialog or FindPopup(name) end
+    frame.dialog = dialog
+    frame:ClearAllPoints()
     if dialog then
-        f:SetPoint("TOP", dialog, "BOTTOM", 0, -6)
+        frame:SetPoint("TOP", dialog, "BOTTOM", 0, -6)
     else
-        f:SetPoint("TOP", UIParent, "TOP", 0, -220)
+        frame:SetPoint("TOP", UIParent, "TOP", 0, -220)
     end
-    f:Show()
+    frame:Show()
 end
 
 function Panel:Hide()

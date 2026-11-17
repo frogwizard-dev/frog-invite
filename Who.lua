@@ -1,16 +1,15 @@
 local _, ns = ...
 
--- Who the inviter is, for an invite from someone who isn't in the group finder: their race and
--- class straight away (from the invite's GUID, which the game already knows), and their level,
--- guild and zone from a /who. C_FriendList.SendWho is restricted (it only runs from a click), so
--- the panel's Who button sends it. Its answer comes back as the who list (WHO_LIST_UPDATE, or a
--- line in chat for a short list), read by name; no answer in a few seconds means they weren't found.
+-- Who the inviter is, when they aren't in the group finder: race and class straight away (from the
+-- invite's GUID) and level, guild and zone from a /who. SendWho only runs from a click, so the
+-- panel's Who button sends it; the answer is the who list (WHO_LIST_UPDATE, or a line in chat for a
+-- short list), read by name, and no answer in a few seconds means they weren't found.
 
 local Who = {}
 ns.Who = Who
 
 local issecret, Safe = FrogLib.issecret, FrogLib.Safe
-local WAIT = 5 -- seconds to wait for an answer
+Who.WAIT = 5 -- seconds to wait for an answer
 
 -- Race and class from the inviter's GUID: { class, className, race }, or nil.
 function Who.FromGUID(guid)
@@ -23,9 +22,9 @@ function Who.FromGUID(guid)
 end
 
 -- A who list row as a plain table, or nil.
-local function Row(i)
+local function Row(index)
     if C_FriendList and C_FriendList.GetWhoInfo then
-        local ok, info = pcall(C_FriendList.GetWhoInfo, i)
+        local ok, info = pcall(C_FriendList.GetWhoInfo, index)
         if not ok or type(info) ~= "table" then return nil end
         return {
             name = Safe(info.fullName), guild = Safe(info.fullGuildName), level = Safe(info.level),
@@ -33,7 +32,7 @@ local function Row(i)
             area = Safe(info.area),
         }
     elseif GetWhoInfo then
-        local ok, name, guild, level, race, className, area, class = pcall(GetWhoInfo, i)
+        local ok, name, guild, level, race, className, area, class = pcall(GetWhoInfo, index)
         if not ok then return nil end
         return {
             name = Safe(name), guild = Safe(guild), level = Safe(level), race = Safe(race),
@@ -46,17 +45,17 @@ end
 function Who.Find(name)
     local key = ns.Finder.Key(name)
     if not key then return nil end
-    local n = 0
+    local count = 0
     if C_FriendList and C_FriendList.GetNumWhoResults then
-        local ok, num = pcall(C_FriendList.GetNumWhoResults)
-        n = ok and Safe(num) or 0
+        local ok, results = pcall(C_FriendList.GetNumWhoResults)
+        count = ok and Safe(results) or 0
     elseif GetNumWhoResults then
-        local ok, num = pcall(GetNumWhoResults)
-        n = ok and Safe(num) or 0
+        local ok, results = pcall(GetNumWhoResults)
+        count = ok and Safe(results) or 0
     end
-    for i = 1, math.min(tonumber(n) or 0, 50) do
-        local r = Row(i)
-        if r and ns.Finder.Key(r.name) == key then return r end
+    for i = 1, math.min(tonumber(count) or 0, 50) do
+        local row = Row(i)
+        if row and ns.Finder.Key(row.name) == key then return row end
     end
 end
 
@@ -72,5 +71,3 @@ function Who.Send(name)
     end
     return false
 end
-
-Who.WAIT = WAIT
